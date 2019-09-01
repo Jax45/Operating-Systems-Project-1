@@ -1,7 +1,9 @@
 CC = gcc
 
-all: dt.c
-	gcc - g -Wall -o dt dt.c
+OBJECTS = dt.c
+
+all: $(OBJECTS)
+	$(CC) - g -Wall -o dt dt.c
 
 clean:
 	rm dt

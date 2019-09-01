@@ -1,62 +1,78 @@
 #include<stdio.h>
+#include<stdlib.h>
 #include<unistd.h>
 #include<stdbool.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <dirent.h>
 #include <string.h>
+#include <time.h>
+void depthFirst(char dir[], int level, int indentation);
+
+//Global Option Variables:
+bool symLink = false;                                                                                                                                                                                                          bool typeInfo = false;
+bool permInfo = false;
+bool numOfLinks = false;
+bool UID = false;
+bool GID = false;
+bool size = false;
+bool showTime = false;
+
 int main(int argc, char *argv[]) {
 
 	int opt;
 	int indentation = 4;
-	bool symLink = false;
-	bool typeInfo = false;
-	bool permInfo = false;
-	bool numOfLinks = false;
-	bool UID = false;
-	bool GID = false;
-	bool size = false;
-	bool time = false;
-	 
+	int numOfOptargs = 0;
+		
 	while((opt = getopt(argc, argv, "hI:Ltpiugsdl")) != -1){
 		switch(opt){
 			case 'h':
 				printf("Extensive help statement: \n");
+				numOfOptargs++;
 				return 0;
 			case 'I':
 				indentation = atoi(optarg);
-				printf("indentation is: %d \n", indentation);
+				numOfOptargs += 2;
 				break;
 			case 'L':
 				symLink = true;
+				numOfOptargs++;
 				break;
 			case 't':
 				typeInfo = true;
+				numOfOptargs++;
 				break;
 			case 'p':
 				permInfo = true;
+				numOfOptargs++;
 				break;
 			case 'i':
 				//print number of links to inode file
 				numOfLinks = true;
+				numOfOptargs++;
 				break;
 			case 'u':
 				//print UID associated with file
 				UID = true;
+				numOfOptargs++;
 				break;
 			case 'g':
 				GID = true;
+				numOfOptargs++;
 				break;
 			case 's':
 				size = true;
+				numOfOptargs++;
 				break;
 			case 'd':
 				//time last modified
-				time = true;
+				showTime = true;
+				numOfOptargs++;
 				break;
 			case 'l':
 				//print all with tpuig true
 				typeInfo = true;
+				numOfOptargs++;
 				permInfo = true;
 				numOfLinks = true;
 				UID = true;
@@ -64,64 +80,184 @@ int main(int argc, char *argv[]) {
 				size = true;
 				break;
 			default:
-				printf("default\n");
+				numOfOptargs++;
 		}	
 	}
 	char dirName[50] = "";
-	if(argc < 2) {
+	
+	if(argc - numOfOptargs < 2) {
 		strncpy(dirName,".",strlen("."));
 	}
 	else {
-		strncpy(dirName,argv[1],strlen(argv[1]));
+		strncpy(dirName,argv[optind],strlen(argv[optind]));
+	}
+	//print header line
+	printf("|-------------Name-------------|");
+	if(permInfo){
+		printf("---Perms---|");	
 	}	
-	struct stat Stat;
-    	if(stat(dirName,&Stat) < 0)    
-        	return 1;
- 	//pointer for the directory reading struct
+	if(typeInfo){
+		printf("----File  Type----|");
+	}
+	if(numOfLinks){
+		printf("-Link Number-|");
+	}
+	if(UID){
+		printf("-UID-|");
+	}
+	if(GID){
+		printf("-GID-|");
+	}
+	if(size){
+		printf("-Size-|");
+	}
+	if(showTime){
+		printf("---Date Last Modified---|");	
+	}
+	printf("\n");
+	depthFirst(dirName,0,indentation);	
+	return 0;
+}
+
+void depthFirst(char dir[], int level, int indentation) {
+	//pointer for the directory reading struct
 	struct dirent *dirReader;
 	
-	//pointer to directory
-	DIR *baseDir = opendir(dirName);
+	struct stat Stat;
 	
-	if (baseDir == NULL){
+	//pointer to directory
+	DIR *baseDir = opendir(dir);
+	
+	if(baseDir == NULL){
 		//error here
+		printf("ERROR: directory is NULL");
+		exit(1);
+	}
+
+	char indent[50] = "";
+	if(level != 0) {
+		int i = 0;
+		for(i = 0; i < level; i++){
+			int j = 0;
+			for(j = 0; j < indentation; j++){
+				strncat(indent," ",strlen(" "));
+			}
+		}
+	}
+	else{
+		strncpy(indent,"",strlen(""));
 	}
 	char filePath[50] = "";
 	while ((dirReader = readdir(baseDir)) != NULL){
-        	printf("%s\n", dirReader->d_name);
-		
+	
 		//determine if the file has a . to start
 		if (dirReader->d_name[0] == '.'){
+			//if it does skip the file.
 			continue;
 		}
-		strncpy(filePath,dirName,50);
-		strncat(filePath,"/",strlen("/"));
-		strncat(filePath,dirReader->d_name,strlen(dirReader->d_name));
-		
-		printf("\nfilePath That was created: %s \n", filePath);
-		//determine if the file is a directory
+		strncpy(filePath,dir,50);
+                strncat(filePath,"/",strlen("/"));
+                strncat(filePath,dirReader->d_name,strlen(dirReader->d_name));
+		//try to stat call on filePath.
 		if (stat(filePath,&Stat) < 0){
-			printf("Could not do stat call on %s", filePath);
-			return 1;
+                        printf("Could not do stat call on %s", filePath);
+                        exit(1);
+                }
+		char fileName[50] = "";
+		strncpy(fileName,indent,strlen(indent));
+		strncat(fileName,dirReader->d_name,strlen(dirReader->d_name));	
+		//print all of the info at this level
+		printf("|%-30s|",fileName);
+		
+		//check if perms enabled
+		if (permInfo) {
+			printf((S_ISDIR(Stat.st_mode)) ? "d" : "-");
+   			printf((Stat.st_mode & S_IRUSR) ? "r" : "-");
+			printf((Stat.st_mode & S_IWUSR) ? "w" : "-");
+			printf((Stat.st_mode & S_IXUSR) ? "x" : "-");
+			printf((Stat.st_mode & S_IRGRP) ? "r" : "-");
+			printf((Stat.st_mode & S_IWGRP) ? "w" : "-");
+			printf((Stat.st_mode & S_IXGRP) ? "x" : "-");
+			printf((Stat.st_mode & S_IROTH) ? "r" : "-");
+			printf((Stat.st_mode & S_IWOTH) ? "w" : "-");
+			printf((Stat.st_mode & S_IXOTH) ? "x " : "- ");
+			printf("|");
 		}
+		
+		//print file type
+		if(typeInfo){
+			char type[18] = "";
+			switch(Stat.st_mode & S_IFMT) {
+				case S_IFBLK:  strncpy(type,"block device",strlen("block device"));
+					break;
+				case S_IFCHR:  strncpy(type,"character device",strlen("character device"));
+					break;
+				case S_IFDIR:  strncpy(type,"directory",strlen("directory"));
+					break;
+				case S_IFIFO:  strncpy(type,"FIFO/pipe",strlen("FIFO/pipe"));
+					break;
+				case S_IFLNK:  strncpy(type,"symlink",strlen("symlink"));
+					break;
+				case S_IFREG:  strncpy(type,"regular file",strlen("regular file"));
+					break;
+				case S_IFSOCK: strncpy(type,"socket",strlen("socket"));
+					break;
+				default: strncpy(type,"unknown file",strlen("unknown file"));
+					break;	
+			}
+			printf("%-18s|",type);	
+		}
+		
+		//print number of Hard links
+		if(numOfLinks){
+			printf("%-13ld|",(long)Stat.st_nlink);
+		}
+
+		//print the UID
+		if(UID){
+			printf("%-5ld|",(long)Stat.st_uid);
+		}
+				
+		//print the GID
+		if(GID){
+			printf("%-5ld|",(long)Stat.st_gid);  
+		}
+		
+		if(size){
+			//convert size to KB, MB, or GB
+			long long fileSize = Stat.st_size;
+			if(fileSize >= 1000 && fileSize < 10000){
+				//file is in KB
+				printf("%-5lldK|",fileSize/10);
+			}
+			else if(fileSize >= 10000 && fileSize < 100000){
+				//file is in MB
+				printf("%-5lldM|",fileSize/100);
+			}
+			else if(fileSize >= 100000){
+				//file is in GB
+				printf("%-5lldG|",fileSize/1000);
+			}
+			else{
+				printf("%-5lld |",fileSize);
+			}
+		}
+
+		if(showTime){
+			printf("%s", ctime(&Stat.st_mtime));
+		}
+		//because ctime automatically starts newline, only print newline if -d is not used.
+		else{
+			printf("\n");
+		}	
 		//check if directory
 		if (S_ISDIR(Stat.st_mode)){
-			printf("\t is a directory");
-		}
-		//if (stat(dirReader->d_name,&Stat) < 0)
-		//	return 1; 
-  		
-		printf("Information for %s\n file size is %d bytes",dirReader->d_name,Stat.st_size);
-
+                        //printf("\t is a directory\n");
+                        int newLevel = level + 1;
+			depthFirst(filePath,newLevel,indentation);
+                }
 	}
-	closedir(baseDir);     
 	
-    	printf("Information for %s\n",dirName);
-	printf("File Size: \t\t%d bytes\n",Stat.st_size);
-    	printf("Number of Links: \t%d\n",Stat.st_nlink);
-    	printf("File inode: \t\t%d\n",Stat.st_ino);	
-			
-	//execl("/bin/ls", "ls", "-l", (char *)0)i;
-	//printf("\nA sample C program with a makefile XD \n\n");
-	return 0;
+	closedir(baseDir);
 }
+
