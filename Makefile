@@ -1,9 +1,10 @@
-CC = gcc
+CC		= gcc
+CFLAGS		= -g
 
 OBJECTS = dt.c
 
 all: $(OBJECTS)
-	$(CC) - g -Wall -o dt dt.c
+	$(CC) $(CFLAGS) -Wall -o dt dt.c
 
 clean:
 	rm dt

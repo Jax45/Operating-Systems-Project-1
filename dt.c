@@ -10,9 +10,10 @@
 void depthFirst(char dir[], int level, int indentation);
 
 //Global Option Variables:
-bool symLink = false;                                                                                                                                                                                                          bool typeInfo = false;
+bool symLink = false;
 bool permInfo = false;
 bool numOfLinks = false;
+bool typeInfo = false;
 bool UID = false;
 bool GID = false;
 bool size = false;
@@ -27,7 +28,16 @@ int main(int argc, char *argv[]) {
 	while((opt = getopt(argc, argv, "hI:Ltpiugsdl")) != -1){
 		switch(opt){
 			case 'h':
-				printf("Extensive help statement: \n");
+				printf("Usage: dt [Options] [Directory Name]\n"
+					"Options:\n-I [integer]: use -I to change the indentation and follow it with the number of spaces for the indent."
+					"-L: follow symbolic links\n"
+					"-t: show file type information\n"
+					"-p: show file permissions\n"
+					"-i: show number of hard links\n"
+					"-u: show UID of file\n-g: show GID of file\n"
+					"-s: show size of file\n"
+					"-d: show last modified date of file\n"
+					"-l: display file permissions, type, number of hard links, UID, and GID of the file.\n");
 				numOfOptargs++;
 				return 0;
 			case 'I':
@@ -130,7 +140,7 @@ void depthFirst(char dir[], int level, int indentation) {
 	
 	if(baseDir == NULL){
 		//error here
-		printf("ERROR: directory is NULL");
+		perror("Error: dt: directory is NULL");
 		exit(1);
 	}
 
@@ -159,8 +169,8 @@ void depthFirst(char dir[], int level, int indentation) {
                 strncat(filePath,"/",strlen("/"));
                 strncat(filePath,dirReader->d_name,strlen(dirReader->d_name));
 		//try to stat call on filePath.
-		if (stat(filePath,&Stat) < 0){
-                        printf("Could not do stat call on %s", filePath);
+		if (lstat(filePath,&Stat) < 0){
+                        perror("Error: dt: Could not complete stat call.");
                         exit(1);
                 }
 		char fileName[50] = "";
@@ -252,10 +262,32 @@ void depthFirst(char dir[], int level, int indentation) {
 		}	
 		//check if directory
 		if (S_ISDIR(Stat.st_mode)){
-                        //printf("\t is a directory\n");
-                        int newLevel = level + 1;
-			depthFirst(filePath,newLevel,indentation);
-                }
+			int newLevel = level + 1;
+                        depthFirst(filePath,newLevel,indentation);
+		}
+		
+		if(symLink) {
+			//check if symlink and if so follow it
+			if (S_ISLNK(Stat.st_mode)){
+			
+				//do another stat call but this time do stat instead of lstat.
+				//this is to get the data of where the symlink is pointing to.
+				if (stat(filePath,&Stat) < 0){
+                        		perror("Error: dt: Could not complete stat call.");
+                        		exit(1);
+                		}
+				if(S_ISDIR(Stat.st_mode)){
+					int newLevel = level + 1;
+					depthFirst(filePath,newLevel,indentation);
+				}
+				/*char buf[1024];
+				size_t size;
+				if ((size = readlink(filePath, buf, sizeof(buf)-1)) != -1){
+					buf[size] = '\0';
+					depthFirst(buf,level,indentation);
+				}*/
+			}
+		}
 	}
 	
 	closedir(baseDir);
