@@ -1,9 +1,44 @@
 Author: Jackson Hoenig
 Class: Operating Systems
 Instructor: Sanjiv Bhatia
+Name of program: dt
+Description: This program is used to see the contents of files in a directory and the directories nested
+	inside that directory. Furthermore, if given the option -L the program will follow the symbolic link
+	if it is found inside a directory. for information on additional options use -h for the usage statement.
+	This program starts out by reading the options provided by the user then saving them to global booleans.
+	Next, the program reads if a directory was given as an argument, if no argument was given then the
+	current directory is saved as the base directory instead of the argument. That base directory is then
+	sent into a function called depthFirst(). depthFirst opens the directory and for each file within that directory,
+	it calculates the indentation and sends the fileName, filePath, and variables needed to calculate the indentation to
+	the function printFile(). printFile() then uses lstat() to calculate all of the information on all files (including symlinks)
+	That information is then printed to the screen preformatted. After printing, the printfile function checks to see 
+	if the file printed is a directory or symbolic link. if it is a directory then the depthFirst() function is called
+	recursively (printfile is being called by depthfirst, so in essense it is recursive). on the other hand, if it is a symbolic
+	link then a stat() system call is used to get the information of the file that the symlink is pointing to. if the symlink
+	is pointing at a directory depthFirst() is again called with that directory, if it is a file then that file's
+	name and path are calculated and sent to printFile() with the correct indentation.
 
-TODO
-create header row
-format all but filename,type,perms
-perror
-symlinks
+Options:
+		
+	-I [integer]: use -I to change the indentation and follow it with the number of spaces for the indent. integer needs to be 0-10 inclusive.
+        -L: follow symbolic links, default is to not follow symlinks.
+        -t: show file type information
+        -p: show file permissions
+        -i: show number of hard links
+        -u: show UID of file
+	-g: show GID of file
+        -s: show size of file
+        -d: show last modified date of file
+        -l: display file permissions, type, number of hard links, UID, and GID of the file.
+	
+How To Run dt:
+	First clean the current directory by calling
+	$	make clean
+	
+	next compile the project by calling the makefile
+	$	make
+	
+	finally, call dt. with optional directory name and options.
+	$	./dt [options] [dirName]
+	
+	if dirName is left empty it assums the current directory.

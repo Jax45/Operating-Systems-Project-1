@@ -1,10 +1,15 @@
 CC		= gcc
 CFLAGS		= -g
+TARGET		= dt
+OBJECTS		= dt.o
+.SUFFIXES: .c .o
 
-OBJECTS = dt.c
+$(TARGET): $(OBJECTS)
+	$(CC) -o $@ $(OBJECTS)
 
-all: $(OBJECTS)
-	$(CC) $(CFLAGS) -Wall -o dt dt.c
+.c.o: dt.c
+	$(CC) $(CFLAGS) -c $<
 
+.PHONY: clean
 clean:
-	rm dt
+	/bin/rm -f *.o $(TARGET)
