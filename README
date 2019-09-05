@@ -42,3 +42,11 @@ How To Run dt:
 	$	./dt [options] [dirName]
 	
 	if dirName is left empty it assums the current directory.
+
+Version Control: I used Git the documentation for how to use Git is found here: https://git-scm.com/doc
+
+Problems this program has:
+	if the symbolic link goes to the parent directory an infinite loop could be created.
+
+	if the directory can go down multiple levels the increased indentation can mess up the formatting for those files.
+

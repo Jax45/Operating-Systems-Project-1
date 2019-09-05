@@ -1,6 +1,23 @@
 //Author: Jackson Hoenig
 //Date: 9/4/2019
-//Description: 
+//Instructor: Sanjiv Bhatia
+//Description:
+/*This program is used to see the contents of files in a directory and the directories nested
+ *inside that directory. Furthermore, if given the option -L the program will follow the symbolic link
+ *if it is found inside a directory. for information on additional options use -h for the usage statement.
+ *This program starts out by reading the options provided by the user then saving them to global booleans.
+ *Next, the program reads if a directory was given as an argument, if no argument was given then the
+ *current directory is saved as the base directory instead of the argument. That base directory is then
+ *sent into a function called depthFirst(). depthFirst opens the directory and for each file within that directory,
+ *it calculates the indentation and sends the fileName, filePath, and variables needed to calculate the indentation to
+ *the function printFile(). printFile() then uses lstat() to calculate all of the information on all files (including symlinks)
+ *That information is then printed to the screen preformatted. After printing, the printfile function checks to see
+ *if the file printed is a directory or symbolic link. if it is a directory then the depthFirst() function is called
+ *recursively (printfile is being called by depthfirst, so in essense it is recursive). on the other hand, if it is a symbolic
+ *link then a stat() system call is used to get the information of the file that the symlink is pointing to. if the symlink
+ *is pointing at a directory depthFirst() is again called with that directory, if it is afile then that file's
+ *name and path are calculated and sent to printFile() with the correct indentation.
+ */ 
 
 //dependencies
 #include<stdio.h>
@@ -57,8 +74,8 @@ int main(int argc, char *argv[]) {
 			case 'I':
 				indentation = atoi(optarg);
 				//validate indentation
-				if(indentation < 0 || indentation > 10){
-					printf("%s","Error: dt: Indentation given needs to be between 0 and 10 inclusive.\n");
+				if(indentation < 0 || indentation > 6){
+					printf("%s","Error: dt: Indentation given needs to be between 0 and 6 inclusive.\n");
 					exit(2);
 				}
 				numOfOptargs += 2;
@@ -128,8 +145,8 @@ int main(int argc, char *argv[]) {
 		strncpy(dirName,".",strlen("."));
 	}
 	else {
-		if(strlen(argv[optind]) > 20 || strlen(argv[optind]) < 1){
-			printf("%s","Error: dt: Directory given needs to be less than 20 characters long\n");
+		if(strlen(argv[optind]) > 30 || strlen(argv[optind]) < 1){
+			printf("%s","Error: dt: Directory given needs to be less than 30 characters long\n");
 			exit(1);
 		}
 		strncpy(dirName,argv[optind],strlen(argv[optind]));
@@ -161,7 +178,14 @@ int main(int argc, char *argv[]) {
 	depthFirst(dirName,0,indentation);	
 	return 0;
 }
-
+/*This function takes in a directory name, the level in the tree,
+ * and the indentation given from the options or default indentation.
+ * then the directory is read and each file in the directory is sent
+ * to the function printFile() after the file path and file name
+ * have been appropriately formatted with dir/name and <indent>name
+ * respectively. where dir is the directory, name is the file name,
+ * and <indent> is the Indentation * " " (whitespace) * level.
+ */
 void depthFirst(char dir[], int level, int indentation) {
 	//pointer for the directory reading struct
 	struct dirent *dirReader;
@@ -178,12 +202,16 @@ void depthFirst(char dir[], int level, int indentation) {
 	}
 	
 	//create a buffer to hold spaces equal to the indentation * level in tree.
-	char indent[50] = "";
+	char indent[500] = "";
 	if(level != 0) {
 		int i = 0;
 		for(i = 0; i < level; i++){
 			int j = 0;
 			for(j = 0; j < indentation; j++){
+				if(strlen(indent) > 450) {
+					printf("\n%s\n","The directory tree was too long recursively make sure you do not have a loop.");
+					exit(5);
+				}
 				strncat(indent," ",strlen(" "));
 			}
 		}
@@ -194,27 +222,38 @@ void depthFirst(char dir[], int level, int indentation) {
 	}
 	//read the baseDir and iterate through each file in that directory
 	//the baseDir will either be the default ".", the argument given or the inner directory found.
-	char filePath[50] = "";
+	//char filePath[1000] = "";
 	while ((dirReader = readdir(baseDir)) != NULL){
-	
+		char filePath[1000] = "";
 		//determine if the file has a . to start
 		if (dirReader->d_name[0] == '.'){
 			//if it does skip the file.
 			continue;
 		}
 		//copy the directory to filePath and format it to get the path of the file.
-		strncpy(filePath,dir,50);
+		strncpy(filePath,dir,strlen(dir));
+		//prevent buffer overflow
+		if(strlen(dir) + 1 + strlen(dirReader->d_name) > 999){
+			printf("\nThe file path for %s  was too long. Killing process...\n",dirReader->d_name);
+			exit(6);
+		}
                 strncat(filePath,"/",strlen("/"));
 		//now that we have the prefix path add the name to it.
                 strncat(filePath,dirReader->d_name,strlen(dirReader->d_name));
 		//try to stat call on filePath.
 		if (lstat(filePath,&Stat) < 0){
+			//printf("%s",filePath);
                         perror("Error: dt: Could not complete stat call.");
                         exit(1);
                 }
 		//add the indent to filename and pass it to printFile.
-		char fileName[50] = "";
+		char fileName[500] = "";
 		strncpy(fileName,indent,strlen(indent));
+		//prevent buffer overflow:
+		if (strlen(dirReader->d_name) + strlen(fileName) >= 499){
+			printf("\nThe file name %s matched with the indentation were too large. Killing process...\n", dirReader->d_name);
+			exit(7);
+		}
 		strncat(fileName,dirReader->d_name,strlen(dirReader->d_name));	
 		//print all of the info at this level
 		printFile(fileName,filePath,Stat,level,indentation);
@@ -223,6 +262,16 @@ void depthFirst(char dir[], int level, int indentation) {
 	}
 	closedir(baseDir);
 }
+/*This function takes in a preformatted with indentation fileName, the file's path,
+ * the stat struct that was used on that filePath, the level in the tree, and the indentation
+ * given at the start of the program.
+ * then, the name and corresponding file's data is printed in a formatted manner that
+ * that matches up with the options given at the start of the program.
+ * after printing, the file is checked to see if it is a directory or symbolic link.
+ * if it is a directory then it is followed and sent to depthFirst(), if it is a symbolic link
+ * then it is also followed but only if -L was given as an option.
+ * if the file is just a normal file then the function ends right after printing.
+ */
 void printFile(char fileName[], char filePath[], struct stat Stat, int level, int indentation){
 	printf("|%-30s|",fileName);
 		
@@ -285,18 +334,18 @@ void printFile(char fileName[], char filePath[], struct stat Stat, int level, in
 			long long fileSize = Stat.st_size;
 			if(fileSize >= 1000 && fileSize < 10000){
 				//file is in KB
-				printf("%-5lldK|",fileSize/10);
+				printf("%5lldK|",fileSize/10);
 			}
 			else if(fileSize >= 10000 && fileSize < 100000){
 				//file is in MB
-				printf("%-5lldM|",fileSize/100);
+				printf("%5lldM|",fileSize/100);
 			}
 			else if(fileSize >= 100000){
 				//file is in GB
-				printf("%-5lldG|",fileSize/1000);
+				printf("%5lldG|",fileSize/1000);
 			}
 			else{
-				printf("%-5lld |",fileSize);
+				printf("%5lld |",fileSize);
 			}
 		}
 
@@ -346,12 +395,16 @@ void printFile(char fileName[], char filePath[], struct stat Stat, int level, in
 					int newLevel = level + 1;
 					
 					//calculate indent for the symName
-					char indent[50] = "";
+					char indent[500] = "";
 					        if(newLevel != 0) {
 					                int i = 0;
 					                for(i = 0; i < newLevel; i++){
 					                        int j = 0;
 					                        for(j = 0; j < indentation; j++){
+									if(strlen(indent) > 450) {
+                                        					printf("\n%s\n","The directory tree was too long recursively make sure you do not have a loop.");
+                                        					exit(5);
+                                					}
 					                                strncat(indent," ",strlen(" "));
 					                        }
 					                }
@@ -361,8 +414,12 @@ void printFile(char fileName[], char filePath[], struct stat Stat, int level, in
 					        }                        		
                				
 					//add the indent to the symName at the start.
-					char indentSymName[50] = "";
+					char indentSymName[500] = "";
 					strncpy(indentSymName,indent,strlen(indent));
+					if(strlen(indentSymName) + strlen(indent) >= 499){
+						printf("The indentation plus the symbolicfile's name(%s) were too large together");
+						exit(9);
+					}
 					strncat(indentSymName,symName,strlen(symName));
 					
 					//then display the file that the symlink is pointing to.
